@@ -1,0 +1,19 @@
+# Render Blueprint for ETL Ratio Dashboard
+# Deploy via: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: etl-ratio-dashboard
+    runtime: node
+    plan: free
+    buildCommand: cd client && npm install && npm run build && cd ../server && npm install
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: INSTANTLY_API_KEY
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
