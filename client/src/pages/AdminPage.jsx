@@ -55,26 +55,12 @@ function LoginForm({ onLogin }) {
 // Lead input form component
 function LeadInputForm({ onLogout }) {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [source, setSource] = useState('apollo');
-  const [industries, setIndustries] = useState([]);
-  const [selectedIndustry, setSelectedIndustry] = useState('');
-  const [industrySearch, setIndustrySearch] = useState('');
   const [leadCount, setLeadCount] = useState('');
   const [notes, setNotes] = useState('');
   const [recentEntries, setRecentEntries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  const fetchIndustries = useCallback(async () => {
-    try {
-      const data = await api.getIndustries();
-      setIndustries(data);
-    } catch (err) {
-      console.error('Failed to fetch industries:', err);
-    }
-  }, []);
 
   const fetchRecentEntries = useCallback(async () => {
     try {
@@ -86,15 +72,8 @@ function LeadInputForm({ onLogout }) {
   }, []);
 
   useEffect(() => {
-    fetchIndustries();
     fetchRecentEntries();
-  }, [fetchIndustries, fetchRecentEntries]);
-
-  const filteredIndustries = industries.filter(ind =>
-    ind.name.toLowerCase().includes(industrySearch.toLowerCase())
-  );
-
-  const selectedIndustryName = industries.find(i => i.id === parseInt(selectedIndustry))?.name || '';
+  }, [fetchRecentEntries]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -103,26 +82,10 @@ function LeadInputForm({ onLogout }) {
     setLoading(true);
 
     try {
-      if (selectedIndustry) {
-        // Submit industry-specific leads
-        await api.submitIndustryLeads(
-          parseInt(selectedIndustry),
-          date,
-          parseInt(leadCount, 10),
-          source,
-          notes || undefined
-        );
-        setSuccess(`Added ${leadCount} leads for ${selectedIndustryName} (${source}) on ${date}`);
-      } else {
-        // Legacy: submit total leads (no industry)
-        const result = await api.submitLeads(parseInt(leadCount, 10), date, notes || undefined);
-        setSuccess(`Updated ${result.date}: ${result.previousLeadCount} → ${result.newLeadCount} leads`);
-      }
-
+      const result = await api.submitLeads(parseInt(leadCount, 10), date, notes || undefined);
+      setSuccess(`Updated ${result.date}: ${result.previousLeadCount} → ${result.newLeadCount} leads`);
       setLeadCount('');
       setNotes('');
-      setSelectedIndustry('');
-      setIndustrySearch('');
       fetchRecentEntries();
     } catch (err) {
       if (err.message.includes('401') || err.message.includes('expired')) {
@@ -150,37 +113,9 @@ function LeadInputForm({ onLogout }) {
 
       <div className="admin-content">
         <div className="input-card">
-          <h3>Submit Industry Leads</h3>
+          <h3>Submit Leads</h3>
 
           <form onSubmit={handleSubmit}>
-            {/* Source Toggle */}
-            <div className="form-group">
-              <label>Source</label>
-              <div className="source-toggle">
-                <button
-                  type="button"
-                  className={`toggle-btn ${source === 'apollo' ? 'active' : ''}`}
-                  onClick={() => setSource('apollo')}
-                >
-                  Apollo
-                </button>
-                <button
-                  type="button"
-                  className={`toggle-btn ${source === 'gmaps' ? 'active' : ''}`}
-                  onClick={() => setSource('gmaps')}
-                >
-                  GMaps
-                </button>
-                <button
-                  type="button"
-                  className={`toggle-btn ${source === 'industry_specific' ? 'active' : ''}`}
-                  onClick={() => setSource('industry_specific')}
-                >
-                  Industry Specific
-                </button>
-              </div>
-            </div>
-
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="date">Date</label>
@@ -205,60 +140,6 @@ function LeadInputForm({ onLogout }) {
                   required
                 />
               </div>
-            </div>
-
-            {/* Industry Selector */}
-            <div className="form-group industry-selector">
-              <label htmlFor="industry">Industry</label>
-              <div className="industry-input-wrapper">
-                <input
-                  type="text"
-                  id="industry"
-                  value={selectedIndustry ? selectedIndustryName : industrySearch}
-                  onChange={(e) => {
-                    setIndustrySearch(e.target.value);
-                    setSelectedIndustry('');
-                    setShowDropdown(true);
-                  }}
-                  onFocus={() => setShowDropdown(true)}
-                  placeholder="Search industries..."
-                  autoComplete="off"
-                />
-                {selectedIndustry && (
-                  <button
-                    type="button"
-                    className="clear-industry"
-                    onClick={() => {
-                      setSelectedIndustry('');
-                      setIndustrySearch('');
-                    }}
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-
-              {showDropdown && !selectedIndustry && (
-                <div className="industry-dropdown">
-                  {filteredIndustries.slice(0, 15).map(ind => (
-                    <div
-                      key={ind.id}
-                      className="industry-option"
-                      onClick={() => {
-                        setSelectedIndustry(ind.id.toString());
-                        setIndustrySearch('');
-                        setShowDropdown(false);
-                      }}
-                    >
-                      <span className="industry-name">{ind.name}</span>
-                      <span className="industry-pct">{parseFloat(ind.send_percentage || 0).toFixed(2)}%</span>
-                    </div>
-                  ))}
-                  {filteredIndustries.length === 0 && (
-                    <div className="industry-option disabled">No industries found</div>
-                  )}
-                </div>
-              )}
             </div>
 
             <div className="form-group">
