@@ -1,0 +1,277 @@
+// Industries API routes
+import express from 'express';
+import { query } from '../db/database.js';
+
+const router = express.Router();
+
+// GET /api/industries - List all industries
+router.get('/', async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT id, name, source, send_percentage, keywords
+      FROM industries
+      ORDER BY send_percentage DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Failed to get industries:', err);
+    res.status(500).json({ error: 'Failed to fetch industries' });
+  }
+});
+
+// GET /api/industries/leads - Get industry leads with ETL metrics
+router.get('/leads', async (req, res) => {
+  const { startDate, endDate, source } = req.query;
+
+  try {
+    let dateFilter = '';
+    let params = [];
+
+    if (startDate && endDate) {
+      dateFilter = 'WHERE il.date >= $1 AND il.date <= $2';
+      params = [startDate, endDate];
+    }
+
+    if (source) {
+      if (dateFilter) {
+        dateFilter += ` AND il.source = $${params.length + 1}`;
+      } else {
+        dateFilter = `WHERE il.source = $1`;
+      }
+      params.push(source);
+    }
+
+    // Get total sends for the period
+    const sendsResult = await query(`
+      SELECT COALESCE(SUM(emails_sent), 0) as total_sends
+      FROM daily_metrics
+      ${startDate && endDate ? 'WHERE date >= $1 AND date <= $2' : ''}
+    `, startDate && endDate ? [startDate, endDate] : []);
+
+    const totalSends = parseInt(sendsResult.rows[0]?.total_sends) || 0;
+
+    // Get leads by industry
+    const result = await query(`
+      SELECT
+        i.id,
+        i.name,
+        i.source,
+        i.send_percentage,
+        COALESCE(SUM(il.leads_count), 0) as total_leads
+      FROM industries i
+      LEFT JOIN industry_leads il ON i.id = il.industry_id
+        ${dateFilter ? 'AND ' + dateFilter.replace('WHERE', '') : ''}
+      GROUP BY i.id, i.name, i.source, i.send_percentage
+      ORDER BY i.send_percentage DESC
+    `, params);
+
+    // Calculate ETL for each industry
+    const industries = result.rows.map(row => {
+      const industrySends = Math.round(totalSends * (parseFloat(row.send_percentage) / 100));
+      const leads = parseInt(row.total_leads) || 0;
+      const etlRatio = leads > 0 ? Math.round(industrySends / leads) : 0;
+
+      return {
+        id: row.id,
+        name: row.name,
+        source: row.source,
+        sendPercentage: parseFloat(row.send_percentage),
+        sends: industrySends,
+        leads,
+        etlRatio,
+        sendsPerLead: etlRatio
+      };
+    });
+
+    res.json({
+      totalSends,
+      industries
+    });
+  } catch (err) {
+    console.error('Failed to get industry leads:', err);
+    res.status(500).json({ error: 'Failed to fetch industry leads' });
+  }
+});
+
+// GET /api/industries/leaderboard - Get top industries by ETL
+router.get('/leaderboard', async (req, res) => {
+  const { startDate, endDate, source, limit = 20 } = req.query;
+
+  try {
+    // Get total sends for the period
+    const sendsResult = await query(`
+      SELECT COALESCE(SUM(emails_sent), 0) as total_sends
+      FROM daily_metrics
+      ${startDate && endDate ? 'WHERE date >= $1 AND date <= $2' : ''}
+    `, startDate && endDate ? [startDate, endDate] : []);
+
+    const totalSends = parseInt(sendsResult.rows[0]?.total_sends) || 0;
+
+    // Build date filter for industry_leads
+    let dateFilter = '';
+    let params = [];
+
+    if (startDate && endDate) {
+      dateFilter = 'AND il.date >= $1 AND il.date <= $2';
+      params = [startDate, endDate];
+    }
+
+    if (source) {
+      dateFilter += ` AND il.source = $${params.length + 1}`;
+      params.push(source);
+    }
+
+    // Get industries with leads
+    const result = await query(`
+      SELECT
+        i.id,
+        i.name,
+        i.source,
+        i.send_percentage,
+        COALESCE(SUM(il.leads_count), 0) as total_leads
+      FROM industries i
+      LEFT JOIN industry_leads il ON i.id = il.industry_id ${dateFilter}
+      GROUP BY i.id, i.name, i.source, i.send_percentage
+      HAVING COALESCE(SUM(il.leads_count), 0) > 0
+      ORDER BY i.send_percentage DESC
+    `, params);
+
+    // Calculate ETL and sort by best ratio
+    const industries = result.rows
+      .map(row => {
+        const industrySends = Math.round(totalSends * (parseFloat(row.send_percentage) / 100));
+        const leads = parseInt(row.total_leads) || 0;
+        const etlRatio = leads > 0 ? Math.round(industrySends / leads) : Infinity;
+
+        return {
+          id: row.id,
+          name: row.name,
+          source: row.source,
+          sendPercentage: parseFloat(row.send_percentage),
+          sends: industrySends,
+          leads,
+          etlRatio,
+          sendsPerLead: etlRatio
+        };
+      })
+      .filter(i => i.leads > 0 && i.etlRatio !== Infinity)
+      .sort((a, b) => a.etlRatio - b.etlRatio) // Lower is better
+      .slice(0, parseInt(limit));
+
+    res.json({
+      totalSends,
+      leaderboard: industries
+    });
+  } catch (err) {
+    console.error('Failed to get industry leaderboard:', err);
+    res.status(500).json({ error: 'Failed to fetch leaderboard' });
+  }
+});
+
+// POST /api/industries/leads - Submit leads for an industry
+router.post('/leads', async (req, res) => {
+  const { industryId, date, leadsCount, source = 'apollo', notes } = req.body;
+
+  if (!industryId || !date || leadsCount === undefined) {
+    return res.status(400).json({ error: 'industryId, date, and leadsCount are required' });
+  }
+
+  try {
+    const result = await query(`
+      INSERT INTO industry_leads (industry_id, date, source, leads_count, notes)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (date, industry_id, source) DO UPDATE SET
+        leads_count = $4,
+        notes = $5,
+        updated_at = NOW()
+      RETURNING *
+    `, [industryId, date, source, leadsCount, notes]);
+
+    // Also update total leads for the day
+    await query(`
+      INSERT INTO daily_metrics (date, leads_generated, leads_updated_at, updated_at)
+      VALUES ($1, $2, NOW(), NOW())
+      ON CONFLICT (date) DO UPDATE SET
+        leads_generated = (
+          SELECT COALESCE(SUM(leads_count), 0)
+          FROM industry_leads
+          WHERE date = $1
+        ),
+        leads_updated_at = NOW(),
+        updated_at = NOW()
+    `, [date]);
+
+    res.json({
+      success: true,
+      entry: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Failed to submit industry leads:', err);
+    res.status(500).json({ error: 'Failed to submit leads' });
+  }
+});
+
+// GET /api/industries/:id/stats - Get stats for a specific industry
+router.get('/:id/stats', async (req, res) => {
+  const { id } = req.params;
+  const { startDate, endDate } = req.query;
+
+  try {
+    // Get industry info
+    const industryResult = await query(
+      'SELECT * FROM industries WHERE id = $1',
+      [id]
+    );
+
+    if (industryResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Industry not found' });
+    }
+
+    const industry = industryResult.rows[0];
+
+    // Get total sends for the period
+    const sendsResult = await query(`
+      SELECT COALESCE(SUM(emails_sent), 0) as total_sends
+      FROM daily_metrics
+      ${startDate && endDate ? 'WHERE date >= $1 AND date <= $2' : ''}
+    `, startDate && endDate ? [startDate, endDate] : []);
+
+    const totalSends = parseInt(sendsResult.rows[0]?.total_sends) || 0;
+    const industrySends = Math.round(totalSends * (parseFloat(industry.send_percentage) / 100));
+
+    // Get leads for this industry
+    const leadsResult = await query(`
+      SELECT
+        COALESCE(SUM(leads_count), 0) as total_leads,
+        COUNT(DISTINCT date) as days_with_leads
+      FROM industry_leads
+      WHERE industry_id = $1
+      ${startDate && endDate ? 'AND date >= $2 AND date <= $3' : ''}
+    `, startDate && endDate ? [id, startDate, endDate] : [id]);
+
+    const leads = parseInt(leadsResult.rows[0]?.total_leads) || 0;
+    const daysWithLeads = parseInt(leadsResult.rows[0]?.days_with_leads) || 0;
+
+    res.json({
+      industry: {
+        id: industry.id,
+        name: industry.name,
+        source: industry.source,
+        sendPercentage: parseFloat(industry.send_percentage),
+        keywords: industry.keywords
+      },
+      stats: {
+        sends: industrySends,
+        leads,
+        etlRatio: leads > 0 ? Math.round(industrySends / leads) : 0,
+        daysWithLeads,
+        avgLeadsPerDay: daysWithLeads > 0 ? Math.round(leads / daysWithLeads * 10) / 10 : 0
+      }
+    });
+  } catch (err) {
+    console.error('Failed to get industry stats:', err);
+    res.status(500).json({ error: 'Failed to fetch industry stats' });
+  }
+});
+
+export default router;

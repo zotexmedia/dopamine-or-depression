@@ -5,6 +5,7 @@ import RatioGauge from './RatioGauge';
 import TrendChart from './TrendChart';
 import DatePicker from './DatePicker';
 import MoodIndicator from './MoodIndicator';
+import IndustryLeaderboard from './IndustryLeaderboard';
 
 export default function Dashboard({
   metrics,
@@ -181,6 +182,9 @@ export default function Dashboard({
         <RatioGauge sendsPerLead={currentMetrics.sendsPerLead} />
         <TrendChart data={trend} dataKey="etlRatio" />
       </div>
+
+      {/* Industry Leaderboard */}
+      <IndustryLeaderboard startDate={startDate} endDate={endDate} />
     </div>
   );
 }

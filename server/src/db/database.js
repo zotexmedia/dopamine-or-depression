@@ -88,6 +88,34 @@ export async function initializeDatabase() {
     -- Index for date queries
     CREATE INDEX IF NOT EXISTS idx_daily_metrics_date ON daily_metrics(date DESC);
 
+    -- Industries reference table with send percentages
+    CREATE TABLE IF NOT EXISTS industries (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(100) NOT NULL UNIQUE,
+      source VARCHAR(20) NOT NULL DEFAULT 'apollo',
+      send_percentage DECIMAL(10,6) DEFAULT 0,
+      lead_count INTEGER DEFAULT 0,
+      keywords TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Industry-specific daily leads
+    CREATE TABLE IF NOT EXISTS industry_leads (
+      id SERIAL PRIMARY KEY,
+      date DATE NOT NULL,
+      industry_id INTEGER REFERENCES industries(id),
+      source VARCHAR(20) NOT NULL DEFAULT 'apollo',
+      leads_count INTEGER DEFAULT 0,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(date, industry_id, source)
+    );
+
+    -- Index for industry leads queries
+    CREATE INDEX IF NOT EXISTS idx_industry_leads_date ON industry_leads(date DESC);
+    CREATE INDEX IF NOT EXISTS idx_industry_leads_industry ON industry_leads(industry_id);
+
     -- Clean up expired sessions periodically
     DELETE FROM admin_sessions WHERE expires_at < NOW();
   `;

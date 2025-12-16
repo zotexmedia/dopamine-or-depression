@@ -7,12 +7,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { pool, initializeDatabase, testConnection } from './db/database.js';
+import { seedIndustries } from './db/seed-industries.js';
 import { startSyncJob, stopSyncJob } from './services/metrics-calculator.js';
 import { cleanupSessions } from './middleware/auth.js';
 
 import authRoutes from './routes/auth.js';
 import metricsRoutes from './routes/metrics.js';
 import leadsRoutes from './routes/leads.js';
+import industriesRoutes from './routes/industries.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,6 +39,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/metrics', metricsRoutes);
 app.use('/api/leads', leadsRoutes);
+app.use('/api/industries', industriesRoutes);
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
@@ -79,6 +82,9 @@ async function start() {
 
     // Initialize database schema
     await initializeDatabase();
+
+    // Seed industries
+    await seedIndustries();
 
     // Start the sync job (every 15 minutes)
     if (process.env.INSTANTLY_API_KEY) {
