@@ -19,6 +19,23 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Calculate sends based on source type
+// - apollo: 100% of sends (general)
+// - gmaps: 50% of sends (flat)
+// - industry_specific: 50% of sends × industry percentage
+function calculateIndustrySends(totalSends, source, industryPercentage) {
+  if (source === 'gmaps') {
+    // GMaps: flat 50% of sends, no industry breakdown
+    return Math.round(totalSends * 0.50);
+  } else if (source === 'industry_specific') {
+    // Industry Specific: 50% of sends × industry percentage
+    return Math.round(totalSends * 0.50 * (industryPercentage / 100));
+  } else {
+    // Apollo (general): 100% of sends × industry percentage
+    return Math.round(totalSends * (industryPercentage / 100));
+  }
+}
+
 // GET /api/industries/leads - Get industry leads with ETL metrics
 router.get('/leads', async (req, res) => {
   const { startDate, endDate, source } = req.query;
@@ -50,32 +67,34 @@ router.get('/leads', async (req, res) => {
 
     const totalSends = parseInt(sendsResult.rows[0]?.total_sends) || 0;
 
-    // Get leads by industry
+    // Get leads by industry and source
     const result = await query(`
       SELECT
         i.id,
         i.name,
-        i.source,
         i.send_percentage,
+        il.source as lead_source,
         COALESCE(SUM(il.leads_count), 0) as total_leads
       FROM industries i
       LEFT JOIN industry_leads il ON i.id = il.industry_id
         ${dateFilter ? 'AND ' + dateFilter.replace('WHERE', '') : ''}
-      GROUP BY i.id, i.name, i.source, i.send_percentage
+      GROUP BY i.id, i.name, i.send_percentage, il.source
       ORDER BY i.send_percentage DESC
     `, params);
 
-    // Calculate ETL for each industry
+    // Calculate ETL for each industry/source combination
     const industries = result.rows.map(row => {
-      const industrySends = Math.round(totalSends * (parseFloat(row.send_percentage) / 100));
+      const leadSource = row.lead_source || 'apollo';
+      const industryPercentage = parseFloat(row.send_percentage);
+      const industrySends = calculateIndustrySends(totalSends, leadSource, industryPercentage);
       const leads = parseInt(row.total_leads) || 0;
       const etlRatio = leads > 0 ? Math.round(industrySends / leads) : 0;
 
       return {
         id: row.id,
         name: row.name,
-        source: row.source,
-        sendPercentage: parseFloat(row.send_percentage),
+        source: leadSource,
+        sendPercentage: industryPercentage,
         sends: industrySends,
         leads,
         etlRatio,
@@ -121,17 +140,17 @@ router.get('/leaderboard', async (req, res) => {
       params.push(source);
     }
 
-    // Get industries with leads
+    // Get industries with leads grouped by source
     const result = await query(`
       SELECT
         i.id,
         i.name,
-        i.source,
         i.send_percentage,
+        il.source as lead_source,
         COALESCE(SUM(il.leads_count), 0) as total_leads
       FROM industries i
       LEFT JOIN industry_leads il ON i.id = il.industry_id ${dateFilter}
-      GROUP BY i.id, i.name, i.source, i.send_percentage
+      GROUP BY i.id, i.name, i.send_percentage, il.source
       HAVING COALESCE(SUM(il.leads_count), 0) > 0
       ORDER BY i.send_percentage DESC
     `, params);
@@ -139,15 +158,17 @@ router.get('/leaderboard', async (req, res) => {
     // Calculate ETL and sort by best ratio
     const industries = result.rows
       .map(row => {
-        const industrySends = Math.round(totalSends * (parseFloat(row.send_percentage) / 100));
+        const leadSource = row.lead_source || 'apollo';
+        const industryPercentage = parseFloat(row.send_percentage);
+        const industrySends = calculateIndustrySends(totalSends, leadSource, industryPercentage);
         const leads = parseInt(row.total_leads) || 0;
         const etlRatio = leads > 0 ? Math.round(industrySends / leads) : Infinity;
 
         return {
           id: row.id,
           name: row.name,
-          source: row.source,
-          sendPercentage: parseFloat(row.send_percentage),
+          source: leadSource,
+          sendPercentage: industryPercentage,
           sends: industrySends,
           leads,
           etlRatio,
@@ -237,36 +258,59 @@ router.get('/:id/stats', async (req, res) => {
     `, startDate && endDate ? [startDate, endDate] : []);
 
     const totalSends = parseInt(sendsResult.rows[0]?.total_sends) || 0;
-    const industrySends = Math.round(totalSends * (parseFloat(industry.send_percentage) / 100));
 
-    // Get leads for this industry
+    // Get leads for this industry grouped by source
     const leadsResult = await query(`
       SELECT
+        source,
         COALESCE(SUM(leads_count), 0) as total_leads,
         COUNT(DISTINCT date) as days_with_leads
       FROM industry_leads
       WHERE industry_id = $1
       ${startDate && endDate ? 'AND date >= $2 AND date <= $3' : ''}
+      GROUP BY source
     `, startDate && endDate ? [id, startDate, endDate] : [id]);
 
-    const leads = parseInt(leadsResult.rows[0]?.total_leads) || 0;
-    const daysWithLeads = parseInt(leadsResult.rows[0]?.days_with_leads) || 0;
+    // Calculate stats per source
+    const industryPercentage = parseFloat(industry.send_percentage);
+    const statsBySource = leadsResult.rows.map(row => {
+      const source = row.source || 'apollo';
+      const leads = parseInt(row.total_leads) || 0;
+      const daysWithLeads = parseInt(row.days_with_leads) || 0;
+      const industrySends = calculateIndustrySends(totalSends, source, industryPercentage);
+
+      return {
+        source,
+        sends: industrySends,
+        leads,
+        etlRatio: leads > 0 ? Math.round(industrySends / leads) : 0,
+        daysWithLeads,
+        avgLeadsPerDay: daysWithLeads > 0 ? Math.round(leads / daysWithLeads * 10) / 10 : 0
+      };
+    });
+
+    // Calculate totals
+    const totalLeads = statsBySource.reduce((sum, s) => sum + s.leads, 0);
+    const totalDaysWithLeads = Math.max(...statsBySource.map(s => s.daysWithLeads), 0);
+    // Use Apollo calculation for overall sends (100%)
+    const overallSends = calculateIndustrySends(totalSends, 'apollo', industryPercentage);
 
     res.json({
       industry: {
         id: industry.id,
         name: industry.name,
         source: industry.source,
-        sendPercentage: parseFloat(industry.send_percentage),
+        sendPercentage: industryPercentage,
         keywords: industry.keywords
       },
       stats: {
-        sends: industrySends,
-        leads,
-        etlRatio: leads > 0 ? Math.round(industrySends / leads) : 0,
-        daysWithLeads,
-        avgLeadsPerDay: daysWithLeads > 0 ? Math.round(leads / daysWithLeads * 10) / 10 : 0
-      }
+        sends: overallSends,
+        leads: totalLeads,
+        etlRatio: totalLeads > 0 ? Math.round(overallSends / totalLeads) : 0,
+        daysWithLeads: totalDaysWithLeads,
+        avgLeadsPerDay: totalDaysWithLeads > 0 ? Math.round(totalLeads / totalDaysWithLeads * 10) / 10 : 0
+      },
+      statsBySource
     });
   } catch (err) {
     console.error('Failed to get industry stats:', err);

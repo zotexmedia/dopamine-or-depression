@@ -171,6 +171,13 @@ function LeadInputForm({ onLogout }) {
                 >
                   GMaps
                 </button>
+                <button
+                  type="button"
+                  className={`toggle-btn ${source === 'industry_specific' ? 'active' : ''}`}
+                  onClick={() => setSource('industry_specific')}
+                >
+                  Industry Specific
+                </button>
               </div>
             </div>
 

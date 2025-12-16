@@ -47,6 +47,12 @@ export default function IndustryLeaderboard({ startDate, endDate }) {
           >
             GMaps
           </button>
+          <button
+            className={`filter-btn ${sourceFilter === 'industry_specific' ? 'active' : ''}`}
+            onClick={() => setSourceFilter('industry_specific')}
+          >
+            Industry Specific
+          </button>
         </div>
       </div>
 
