@@ -251,7 +251,7 @@ function LeadInputForm({ onLogout }) {
                       }}
                     >
                       <span className="industry-name">{ind.name}</span>
-                      <span className="industry-pct">{ind.send_percentage.toFixed(2)}%</span>
+                      <span className="industry-pct">{(ind.send_percentage || 0).toFixed(2)}%</span>
                     </div>
                   ))}
                   {filteredIndustries.length === 0 && (
