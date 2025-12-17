@@ -85,12 +85,14 @@ export default function DatePicker({ startDate, endDate, onChange, maxDate }) {
 
     const dateStr = formatDateString(date);
 
-    if (!startDate || (startDate && endDate) || selectingEnd === false) {
-      // Start new selection
-      onChange(dateStr, null);
-      setSelectingEnd(true);
-    } else {
-      // Complete the range
+    // If clicking the same date that's already selected as a single day, just close
+    if (startDate === endDate && dateStr === startDate) {
+      setIsOpen(false);
+      return;
+    }
+
+    // If we have a single date selected (start === end) or are in selectingEnd mode, complete the range
+    if (startDate && (selectingEnd || startDate === endDate)) {
       if (dateStr < startDate) {
         // User selected earlier date, swap
         onChange(dateStr, startDate);
@@ -99,6 +101,10 @@ export default function DatePicker({ startDate, endDate, onChange, maxDate }) {
       }
       setSelectingEnd(false);
       setIsOpen(false);
+    } else {
+      // Start new selection
+      onChange(dateStr, dateStr);
+      setSelectingEnd(true);
     }
   };
 

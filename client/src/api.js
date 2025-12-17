@@ -51,6 +51,23 @@ export const api = {
   refreshMetrics: () => request('/metrics/refresh', { method: 'POST' }),
   checkHealth: () => request('/metrics/health'),
 
+  // Daily Campaign Analytics
+  getDailyCampaignAnalytics: (startDate, endDate, campaignStatus) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    if (campaignStatus !== undefined && campaignStatus !== null) params.append('campaign_status', campaignStatus);
+    return request(`/metrics/campaign-analytics/daily${params.toString() ? '?' + params.toString() : ''}`);
+  },
+
+  // Campaign-level Analytics (per campaign)
+  getCampaignAnalytics: (startDate, endDate) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    return request(`/metrics/campaign-analytics${params.toString() ? '?' + params.toString() : ''}`);
+  },
+
   // Auth
   login: (password) => request('/auth/login', {
     method: 'POST',

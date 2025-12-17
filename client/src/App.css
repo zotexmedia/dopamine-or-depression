@@ -1680,3 +1680,418 @@ body {
   color: var(--text-muted);
   font-size: 14px;
 }
+
+/* ========================================
+   CAMPAIGN ANALYTICS TABLE
+   ======================================== */
+
+.campaign-analytics-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  backdrop-filter: blur(20px);
+  margin-top: var(--space-6);
+}
+
+.analytics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-5);
+}
+
+.analytics-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.analytics-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.analytics-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.analytics-loading,
+.analytics-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-10);
+  color: var(--text-muted);
+}
+
+.analytics-error {
+  color: var(--color-error);
+}
+
+/* Column toggles */
+.column-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.column-toggle {
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.column-toggle:hover {
+  border-color: var(--border-hover);
+  color: var(--text-secondary);
+}
+
+.column-toggle.active {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: white;
+}
+
+/* Summary cards */
+.analytics-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+@media (max-width: 768px) {
+  .analytics-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .analytics-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.summary-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.summary-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Analytics table */
+.analytics-table-wrapper {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.analytics-table th,
+.analytics-table td {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.analytics-table th {
+  background: var(--bg-elevated);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.analytics-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.analytics-table th.sortable:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+}
+
+.analytics-table th.sorted {
+  color: var(--brand-primary);
+}
+
+.th-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sort-icon {
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+.analytics-table th.sorted .sort-icon {
+  opacity: 1;
+  color: var(--brand-primary);
+}
+
+.analytics-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.analytics-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.analytics-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.date-cell {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.number-cell {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.number-cell.highlight-replies {
+  color: var(--color-success);
+  font-weight: 500;
+}
+
+.number-cell.highlight-opportunities {
+  color: var(--color-inverse);
+  font-weight: 500;
+}
+
+.no-data {
+  text-align: center;
+  color: var(--text-muted);
+  padding: var(--space-8) !important;
+}
+
+/* Totals row */
+.analytics-table tfoot {
+  border-top: 2px solid var(--border-default);
+}
+
+.totals-row {
+  background: var(--bg-elevated);
+}
+
+.totals-row td {
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: none;
+}
+
+.totals-row .date-cell,
+.totals-row .campaign-cell {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Analytics filters row */
+.analytics-filters {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Search input */
+.analytics-search {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+  max-width: 300px;
+}
+
+.search-input {
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  padding-right: 36px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  transition: all var(--transition-fast);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.clear-search {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.clear-search:hover {
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--color-error);
+}
+
+/* Date range picker */
+.analytics-date-range {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.date-input {
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  transition: all var(--transition-fast);
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.date-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
+.date-separator {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.clear-dates {
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.clear-dates:hover {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+/* Campaign cell */
+.campaign-cell {
+  font-weight: 500;
+  color: var(--text-primary);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Bounced highlight */
+.number-cell.highlight-bounced {
+  color: var(--color-error);
+  font-weight: 500;
+}
+
+/* Rate cells */
+.number-cell.rate-cell {
+  color: var(--color-success);
+  font-weight: 500;
+}
+
+.number-cell.rate-cell.bounce {
+  color: var(--color-error);
+}
+
+@media (max-width: 768px) {
+  .analytics-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .analytics-search {
+    max-width: none;
+  }
+
+  .analytics-date-range {
+    flex-wrap: wrap;
+  }
+}

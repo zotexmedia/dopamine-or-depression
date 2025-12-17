@@ -156,4 +156,61 @@ router.get('/health', async (req, res) => {
   }
 });
 
+// GET /api/metrics/campaign-analytics/daily - Get daily campaign analytics from Instantly
+router.get('/campaign-analytics/daily', async (req, res) => {
+  const { start_date, end_date, campaign_status } = req.query;
+
+  try {
+    const analytics = await instantlyClient.getDailyAnalytics(
+      start_date,
+      end_date,
+      campaign_status !== undefined ? parseInt(campaign_status, 10) : null
+    );
+
+    res.json({
+      success: true,
+      data: analytics,
+      count: analytics.length,
+      filters: {
+        start_date: start_date || null,
+        end_date: end_date || null,
+        campaign_status: campaign_status !== undefined ? parseInt(campaign_status, 10) : null
+      }
+    });
+  } catch (err) {
+    console.error('Failed to get daily campaign analytics:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch daily campaign analytics',
+      message: err.message
+    });
+  }
+});
+
+// GET /api/metrics/campaign-analytics - Get per-campaign analytics from Instantly
+router.get('/campaign-analytics', async (req, res) => {
+  const { start_date, end_date } = req.query;
+
+  try {
+    const analytics = await instantlyClient.getCampaignAnalytics(start_date, end_date);
+
+    res.json({
+      success: true,
+      data: analytics,
+      count: analytics.length,
+      filters: {
+        start_date: start_date || null,
+        end_date: end_date || null
+      }
+    });
+  } catch (err) {
+    console.error('Failed to get campaign analytics:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch campaign analytics',
+      message: err.message
+    });
+  }
+});
+
 export default router;

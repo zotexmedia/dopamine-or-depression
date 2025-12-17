@@ -105,20 +105,26 @@ class InstantlyClient {
   }
 
   // Get daily analytics for all campaigns
-  async getDailyAnalytics(startDate, endDate) {
-    const result = await this.request('/campaigns/analytics/daily', {
-      method: 'GET'
-    });
+  async getDailyAnalytics(startDate, endDate, campaignStatus = null) {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    if (campaignStatus !== null) params.append('campaign_status', campaignStatus);
 
-    // Filter by date range if provided
-    if (startDate || endDate) {
-      return result.filter(day => {
-        const date = day.date;
-        if (startDate && date < startDate) return false;
-        if (endDate && date > endDate) return false;
-        return true;
-      });
-    }
+    const url = `/campaigns/analytics/daily${params.toString() ? '?' + params.toString() : ''}`;
+    const result = await this.request(url, { method: 'GET' });
+
+    return result;
+  }
+
+  // Get campaign-level analytics (per campaign stats)
+  async getCampaignAnalytics(startDate, endDate, campaignIds = null) {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+
+    const url = `/campaigns/analytics${params.toString() ? '?' + params.toString() : ''}`;
+    const result = await this.request(url, { method: 'GET' });
 
     return result;
   }
