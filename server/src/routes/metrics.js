@@ -4,7 +4,8 @@ import express from 'express';
 import {
   getMetricsForAllPeriods,
   syncTodaySends,
-  syncSendsForDate
+  syncSendsForDate,
+  runFullBackfill
 } from '../services/metrics-calculator.js';
 import { instantlyClient } from '../services/instantly-client.js';
 
@@ -59,6 +60,18 @@ router.post('/sync-date', async (req, res) => {
   } catch (err) {
     console.error('Sync date failed:', err);
     res.status(500).json({ error: 'Failed to sync date' });
+  }
+});
+
+// POST /api/metrics/backfill - Trigger full historical backfill
+router.post('/backfill', async (req, res) => {
+  try {
+    console.log('Manual backfill triggered via API');
+    const result = await runFullBackfill();
+    res.json(result);
+  } catch (err) {
+    console.error('Backfill failed:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
