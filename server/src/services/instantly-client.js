@@ -165,8 +165,16 @@ class InstantlyClient {
   // Get total sends for a specific date
   async getTotalSendsForDate(date) {
     try {
-      const analytics = await this.getAggregateAnalytics(date, date);
-      return analytics.sent || 0;
+      // Use daily analytics endpoint which returns per-day breakdown
+      const dailyData = await this.getDailyAnalytics(date, date);
+
+      // Find the entry for the requested date
+      if (Array.isArray(dailyData) && dailyData.length > 0) {
+        const dayEntry = dailyData.find(d => d.date === date);
+        return dayEntry?.sent || 0;
+      }
+
+      return 0;
     } catch (err) {
       console.error(`Failed to get sends for ${date}:`, err.message);
       return 0;
