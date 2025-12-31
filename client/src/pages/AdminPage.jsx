@@ -62,6 +62,10 @@ function LeadInputForm({ onLogout }) {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
+  // Inline editing state
+  const [editingDate, setEditingDate] = useState(null);
+  const [editValue, setEditValue] = useState('');
+
   const fetchRecentEntries = useCallback(async () => {
     try {
       const entries = await api.getRecentEntries(7);
@@ -102,6 +106,57 @@ function LeadInputForm({ onLogout }) {
   const handleLogout = () => {
     setToken(null);
     onLogout();
+  };
+
+  // Start editing a row
+  const handleStartEdit = (entry) => {
+    setEditingDate(entry.date);
+    setEditValue(entry.leads.toString());
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setEditingDate(null);
+    setEditValue('');
+  };
+
+  // Save edited value
+  const handleSaveEdit = async (entryDate) => {
+    const newCount = parseInt(editValue, 10);
+    if (isNaN(newCount) || newCount < 0) {
+      setError('Lead count must be a non-negative number');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const result = await api.submitLeads(newCount, entryDate);
+      setSuccess(`Updated ${result.date}: ${result.previousLeadCount} → ${result.newLeadCount} leads`);
+      setEditingDate(null);
+      setEditValue('');
+      fetchRecentEntries();
+    } catch (err) {
+      if (err.message.includes('401') || err.message.includes('expired')) {
+        setToken(null);
+        window.location.reload();
+      } else {
+        setError(err.message || 'Failed to update');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Enter key in edit input
+  const handleEditKeyDown = (e, entryDate) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit(entryDate);
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
   };
 
   return (
@@ -175,6 +230,7 @@ function LeadInputForm({ onLogout }) {
                   <th>Sends</th>
                   <th>Leads</th>
                   <th>ETL Ratio</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -182,8 +238,49 @@ function LeadInputForm({ onLogout }) {
                   <tr key={entry.date}>
                     <td>{entry.date}</td>
                     <td>{entry.sends.toLocaleString()}</td>
-                    <td>{entry.leads.toLocaleString()}</td>
+                    <td>
+                      {editingDate === entry.date ? (
+                        <input
+                          type="number"
+                          className="edit-input"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={(e) => handleEditKeyDown(e, entry.date)}
+                          autoFocus
+                          min="0"
+                        />
+                      ) : (
+                        entry.leads.toLocaleString()
+                      )}
+                    </td>
                     <td>{entry.sendsPerLead ? `${entry.sendsPerLead.toLocaleString()}:1` : '—'}</td>
+                    <td>
+                      {editingDate === entry.date ? (
+                        <div className="edit-actions">
+                          <button
+                            className="save-btn"
+                            onClick={() => handleSaveEdit(entry.date)}
+                            disabled={loading}
+                          >
+                            {loading ? '...' : 'Save'}
+                          </button>
+                          <button
+                            className="cancel-btn"
+                            onClick={handleCancelEdit}
+                            disabled={loading}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="edit-btn"
+                          onClick={() => handleStartEdit(entry)}
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
